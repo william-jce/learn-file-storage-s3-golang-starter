@@ -86,6 +86,20 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	processedVideoPath, err := processVideoForFastStart(tempFile.Name())
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Unable to process video", err)
+		return
+	}
+
+	processedVideo, err := os.Open(processedVideoPath)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Unable to open processed video", err)
+		return
+	}
+	defer os.Remove(processedVideoPath)
+	defer processedVideo.Close()
+
 	fileKey := make([]byte, 32)
 	rand.Read(fileKey)
 	encodedFileKey := base64.RawURLEncoding.EncodeToString(fileKey)
@@ -110,7 +124,7 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 	_, err = cfg.s3Client.PutObject(context.Background(), &s3.PutObjectInput{
 		Bucket:      aws.String(cfg.s3Bucket),
 		Key:         aws.String(aspectFileKey),
-		Body:        tempFile,
+		Body:        processedVideo,
 		ContentType: &fileType,
 	})
 	if err != nil {
@@ -118,7 +132,7 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	videoURL := "https://" + cfg.s3Bucket + ".s3." + cfg.s3Region + ".amazonaws.com/" + aspectFileKey
+	videoURL := "https://" + cfg.s3CfDistribution + "/" + aspectFileKey
 	videoMeta.VideoURL = &videoURL
 
 	if err := cfg.db.UpdateVideo(videoMeta); err != nil {

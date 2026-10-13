@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"math"
 	"os/exec"
 )
@@ -14,7 +13,7 @@ func getVideoAspectRatio(filePath string) (string, error) {
 	buffer := bytes.Buffer{}
 	cmd.Stdout = &buffer
 	if err := cmd.Run(); err != nil {
-		return fmt.Sprintln("Unable to run command"), err
+		return "", err
 	}
 
 	type parameters struct {
@@ -26,7 +25,7 @@ func getVideoAspectRatio(filePath string) (string, error) {
 	var params parameters
 
 	if err := json.Unmarshal(buffer.Bytes(), &params); err != nil {
-		return fmt.Sprintln("Unable to unmarshal buffer"), err
+		return "", err
 	}
 
 	width := float64(params.Streams[0].Width)
